@@ -1,0 +1,77 @@
+name: Prueba segundo taller
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  proceso-fechas-api-nasa:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Instalando programa jq
+        run: sudo apt-get install jq
+
+      - name: Leyendo archivo JSON y obteniendo fechas
+        id: get_dates
+        run: |
+          echo "Leyendo dates.json"
+          dates=$(jq -r '.dates[]' dates.json)
+          echo "::set-output name=dates::$dates"
+
+      - name: Peticiones al API de la NASA por cada fecha
+        run: |
+          mkdir -p nasa_responses
+          for date in ${{ steps.get_dates.outputs.dates }}; do
+            # Peticion GET al API
+            api_url="https://api.nasa.gov/planetary/apod?api_key=${{ secrets.API_KEY }}&date=$date"
+            echo "Peticion request a : $api_url"
+            
+            response=$(curl -s -w "%{http_code}" -o response.json "$api_url")
+
+             # Imprimir la respuesta
+            echo "Respuesta de la fecha $date:"
+            cat response.json
+            
+            if [ "$response" -eq 200 ]; then
+              echo "Respuesta para la fecha $date , Guardado."
+              mv response.json "nasa_responses/response_$date.json"
+            else
+              echo "Error: Respuesta de la peticion con status $response para la fecha $date. Saltando peticion."
+              rm response.json
+            fi
+          done
+
+      - name: Descargando imagenes
+        run: |
+          for date in ${{ steps.get_dates.outputs.dates }}; do
+            if [ -f "nasa_responses/response_$date.json" ]; then
+              image_url=$(jq -r '.url' "nasa_responses/response_$date.json")
+              echo "Descargando imagenes desde : $image_url"
+              curl -s -o "img-$date.jpg" "$image_url"
+              echo "Imagen descargada como img-$date.jpg"
+            fi
+          done
+        
+      - name: Cargando imagenes como artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: images
+          path: img-*.jpg
+
+      - name: Cache respuestas del API
+        uses: actions/cache@v3
+        with:
+          path: ./nasa_responses
+          key: nasa-responses-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            nasa-responses-${{ runner.os }}-
+
+      - name: Listando Cache respuestas del API
+        run: |
+          echo "Respuestas cache:"
+          ls nasa_responses
