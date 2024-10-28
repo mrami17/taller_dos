@@ -1,0 +1,6 @@
+name: Prueba2 segundo taller
+
+on:
+  push:
+    branches:
+      - master
