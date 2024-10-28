@@ -34,7 +34,7 @@ jobs:
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         id: url
         run: |
-          echo "parse_url="https://api.nasa.gov/planetary/apod?api_key=${{ secrets.API_KEY }}&date=${{ matrix.date }}" >>  "$GITHUB_OUTPUT"
+          echo "parse_url=https://api.nasa.gov/planetary/apod?api_key=${{ secrets.API_KEY }}&date=${{ matrix.date }}" >> "$GITHUB_OUTPUT"
       - name: send request API
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         id: request
