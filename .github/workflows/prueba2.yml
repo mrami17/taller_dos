@@ -43,6 +43,11 @@ jobs:
           url: ${{ steps.url.outputs.parse_url }}
           method: GET
           responseFile: ./response.json
+      - name: search url in response.json
+        id: search
+        run: |
+         url=$(jq -r '.url' response.json)
+         echo "url=$url" >> "$GITHUB_OUTPUT"
       - name: download image
         uses: minituff/save-image@v1.4
         with:
