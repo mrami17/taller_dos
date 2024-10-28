@@ -1,6 +1,56 @@
-name: Prueba2 segundo taller
+name: Prueba segundo taller
 
-on:
-  push:
-    branches:
-      - master
+on: [push]
+
+jobs:
+  configure_parallels:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.array.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set array of matrix
+        id: array
+        run: |
+          array=$(jq -rc '.dates' dates.json)
+          echo "matrix=$array" >> "$GITHUB_OUTPUT"
+
+  download_images:
+    needs: configure_parallels
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        date: ${{ fromJson(needs.configure_parallels.outputs.matrix) }}
+    steps:
+      - name: cache response
+        id: cache
+        uses: actions/cache@v3
+        with:
+          key: ${{ runner.os }}-response-${{ matrix.date }}
+          path: ./response.json
+      - name: build URL
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        id: url
+        run: |
+          echo "parse_url="https://api.nasa.gov/planetary/apod?api_key=${{ secrets.API_KEY }}&date=${{ matrix.date }}" >>  "$GITHUB_OUTPUT"
+      - name: send request API
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        id: request
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: ${{ steps.url.outputs.parse_url }}
+          method: GET
+          responseFile: ./response.json
+      - name: download image
+        uses: minituff/save-image@v1.4
+        with:
+          url: ${{ steps.search.outputs.url }}
+          imagePath: 'media/image.jpg'
+      - name: upload image in artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: img-${{ matrix.date }}
+          path: media/image.jpg
+          retention-days: 1  
